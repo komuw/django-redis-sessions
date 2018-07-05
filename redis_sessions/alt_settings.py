@@ -1,6 +1,7 @@
 from settings import *
 
-SESSION_REDIS = getattr(settings, 'SESSION_REDIS_FBP', {})
+# this is the alternative redis store instance configs
+SESSION_REDIS = getattr(settings, 'ALT_SESSION_REDIS', {})
 
 SESSION_REDIS_HOST = SESSION_REDIS.get('host', 'localhost')
 SESSION_REDIS_PORT = SESSION_REDIS.get('port', 6379)
