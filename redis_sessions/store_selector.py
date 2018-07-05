@@ -47,8 +47,8 @@ class SessionStoreHandler:
     @staticmethod
     def complete_migration():
         # swap value of [current] with value of [alternative]
-        SessionStoreHandler.current, SessionStoreHandler.alternative = \
-            SessionStoreHandler.alternative, SessionStoreHandler.current
+        SessionStoreHandler.current_store, SessionStoreHandler.alternative_store = \
+            SessionStoreHandler.alternative_store, SessionStoreHandler.current_store
 
         # Set current_state to NO_MIGRATION
         SessionStoreHandler.record_current_state(States.NO_MIGRATION)
@@ -57,38 +57,54 @@ class SessionStoreHandler:
     def migrate_now():
         return SessionStoreHandler.migration_mode
 
+    # For testing purposes only. It should be set/updated as a feature flag
+    @staticmethod
+    def migrate_on():
+        SessionStoreHandler.migration_mode = True
+
+    # For testing purposes only. It should be set/updated as a feature flag
+    @staticmethod
+    def migrate_off():
+        SessionStoreHandler.migration_mode = False
+
     @staticmethod
     def record_current_state(state):
         SessionStoreHandler.current_state = state
 
 
-# this is the entrypoint to be called from USSD
-def get_session_store(session_key):
-    """
-    We don't know whether request session is new or already
-    exists in current store or alternative store . We have to find out
-    """
-    session_store = SessionStoreHandler.get_current_store()
-    session_exists = SessionStoreHandler.check_session_existence(session_store,
-                                                                 session_key)
-    if session_exists:
-        # return the current session store
-        return session_store
-    elif (not session_exists) and (SessionStoreHandler.migrate_now()):
-        SessionStoreHandler.record_current_state(States.MIGRATING)
-        # get and return the alternative session store
-        session_store = SessionStoreHandler.get_alternative_store()
-        return session_store
+class StoreSelector(SessionStoreHandler):
 
-    elif (not SessionStoreHandler.migrate_now())\
-            and (SessionStoreHandler.current_state == States.MIGRATING):
+    def __init__(self, session_key):
+        SessionStoreHandler.__init__(self)
+        self.session_key = session_key
 
-        # complete the migration by updating the current_state variable
-        SessionStoreHandler.complete_migration()
-        # get and return the current session store
-        session_store = SessionStoreHandler.get_current_store()
-        return session_store
+    # this is the entrypoint to be called from USSD
+    def get_session_store(self):
+        """
+        We don't know whether request session is new or already
+        exists in current store or alternative store . We have to find out
+        """
+        session_store = self.get_current_store()
+        session_exists = self.check_session_existence(session_store,
+                                                      self.session_key)
+        if session_exists:
+            # return the current session store
+            return session_store
+        elif (not session_exists) and (self.migrate_now()):
+            self.record_current_state(States.MIGRATING)
+            # get and return the alternative session store
+            session_store = self.get_alternative_store()
+            return session_store
 
-    else:
-        # return the current session store
-        return session_store
+        elif (not self.migrate_now())\
+                and (self.current_state == States.MIGRATING):
+
+            # complete the migration by updating the current_state variable
+            self.complete_migration()
+            # get and return the current session store
+            session_store = self.get_current_store()
+            return session_store
+
+        else:
+            # return the current session store
+            return session_store
