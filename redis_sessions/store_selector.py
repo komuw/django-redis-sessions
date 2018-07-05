@@ -13,10 +13,6 @@ class SessionStoreHandler:
     def __init__(self):
         pass
 
-    # [migration_mode] is updated by the Admin as a functional flag
-    # need to be stored persistently in the db
-    migration_mode = False
-
     # below values are set and updated by the SessionStoreHandler
     # they need to be stored persistently in the db
     current_store = "session_store"
@@ -54,29 +50,16 @@ class SessionStoreHandler:
         SessionStoreHandler.record_current_state(States.NO_MIGRATION)
 
     @staticmethod
-    def migrate_now():
-        return SessionStoreHandler.migration_mode
-
-    # For testing purposes only. It should be set/updated as a feature flag
-    @staticmethod
-    def migrate_on():
-        SessionStoreHandler.migration_mode = True
-
-    # For testing purposes only. It should be set/updated as a feature flag
-    @staticmethod
-    def migrate_off():
-        SessionStoreHandler.migration_mode = False
-
-    @staticmethod
     def record_current_state(state):
         SessionStoreHandler.current_state = state
 
 
 class StoreSelector(SessionStoreHandler):
 
-    def __init__(self, session_key):
+    def __init__(self, session_key, migration_mode):
         SessionStoreHandler.__init__(self)
         self.session_key = session_key
+        self.migration_mode = migration_mode
 
     # this is the entrypoint to be called from USSD
     def get_session_store(self):
@@ -90,13 +73,13 @@ class StoreSelector(SessionStoreHandler):
         if session_exists:
             # return the current session store
             return session_store
-        elif (not session_exists) and (self.migrate_now()):
+        elif (not session_exists) and self.migration_mode:
             self.record_current_state(States.MIGRATING)
             # get and return the alternative session store
             session_store = self.get_alternative_store()
             return session_store
 
-        elif (not self.migrate_now())\
+        elif (not self.migration_mode)\
                 and (self.current_state == States.MIGRATING):
 
             # complete the migration by updating the current_state variable
