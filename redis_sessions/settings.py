@@ -1,6 +1,5 @@
 from django.conf import settings
 
-
 # SESSION_REDIS - Default
 SESSION_REDIS = getattr(settings, 'SESSION_REDIS', {})
 

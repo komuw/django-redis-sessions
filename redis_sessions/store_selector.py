@@ -14,6 +14,7 @@ class SessionStoreHandler:
         pass
 
     # [migration_mode] is updated by the Admin as a functional flag
+    # need to be stored persistently in the db
     migration_mode = False
 
     # below values are set and updated by the SessionStoreHandler
@@ -81,6 +82,8 @@ def get_session_store(session_key):
 
     elif (not SessionStoreHandler.migrate_now())\
             and (SessionStoreHandler.current_state == States.MIGRATING):
+
+        # complete the migration by updating the current_state variable
         SessionStoreHandler.complete_migration()
         # get and return the current session store
         session_store = SessionStoreHandler.get_current_store()
