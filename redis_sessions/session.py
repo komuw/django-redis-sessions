@@ -6,18 +6,16 @@ except ImportError:  # Python 3.*
     from django.utils.encoding import force_text as force_unicode
 from django.contrib.sessions.backends.base import SessionBase, CreateError
 from redis_sessions import settings
-from redis_sessions import settings_fbp
+from redis_sessions import alt_settings
 import base64
 
 
 class RedisServer:
     __redis = {}
 
-    def __init__(self, session_key, use_alternative_store=False):
+    def __init__(self, session_key, settings=settings):
         self.session_key = session_key
         self.connection_key = ''
-        if use_alternative_store:
-            settings = settings_fbp
 
         if settings.SESSION_REDIS_SENTINEL_LIST is not None:
             self.connection_type = 'sentinel'
@@ -105,9 +103,9 @@ class SessionStore(SessionBase):
     """
     Implements Redis database session store.
     """
-    def __init__(self, session_key=None, use_alternative_store=False):
+    def __init__(self, session_key=None, conf=settings):
         super(SessionStore, self).__init__(session_key)
-        self.server = self.get_redis_server(session_key, use_alternative_store)
+        self.server = self.get_redis_server(session_key, conf)
 
     # overriding this to support pickle serializer.
     def __getstate__(self):
@@ -135,8 +133,8 @@ class SessionStore(SessionBase):
         return base64.b64encode(hash.encode() + b":" + serialized)
 
     @staticmethod
-    def get_redis_server(session_key, use_alternative_store):
-        return RedisServer(session_key, use_alternative_store).get()
+    def get_redis_server(session_key, alt_setting):
+        return RedisServer(session_key, alt_setting).get()
 
     def load(self):
         try:
@@ -217,3 +215,9 @@ class SessionStore(SessionBase):
         if not prefix:
             return session_key
         return ':'.join([prefix, session_key])
+
+
+class SessionStoreAlt(SessionStore):
+    def __init__(self, session_key=None, conf=alt_settings):
+        super(SessionStore, self).__init__(session_key)
+        self.server = self.get_redis_server(session_key, conf)
