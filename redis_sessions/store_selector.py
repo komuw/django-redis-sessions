@@ -40,8 +40,8 @@ class SessionStoreHandler:
         return SessionStoreHandler.get_store_object(store_key)
 
     @staticmethod
-    def get_session_object(session_store, session_key):
-        return session_store(session_key)
+    def check_session_existence(session_store, session_key):
+        return session_store().exists(session_key)
 
     @staticmethod
     def complete_migration():
@@ -68,11 +68,12 @@ def get_session_store(session_key):
     exists in current store or alternative store . We have to find out
     """
     session_store = SessionStoreHandler.get_current_store()
-    session_object = SessionStoreHandler.get_session_object(session_store, session_key)
-    if session_object:
+    session_exists = SessionStoreHandler.check_session_existence(session_store,
+                                                                 session_key)
+    if session_exists:
         # return the current session store
         return session_store
-    elif (not session_object) and (SessionStoreHandler.migrate_now()):
+    elif (not session_exists) and (SessionStoreHandler.migrate_now()):
         SessionStoreHandler.record_current_state(States.MIGRATING)
         # get and return the alternative session store
         session_store = SessionStoreHandler.get_alternative_store()
