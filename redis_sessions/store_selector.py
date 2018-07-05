@@ -13,8 +13,15 @@ class SessionStoreHandler:
     def __init__(self):
         pass
 
-    # below values are set and updated by the SessionStoreHandler
-    # they need to be stored persistently in the db
+    '''
+    > The values of [current_store], [alternative_store], and [current_state] 
+    are dynamic.
+    > They are set and updated by the SessionStoreHandler based on different scenarios.
+    > They need to be shared across all processes/requests. 
+    > For persistence, they need to be stored somewhere where they can be retrieved later.
+        A database will help.
+    '''
+
     current_store = "session_store"
     alternative_store = "session_store_alt"
     current_state = States.NO_MIGRATION
@@ -42,7 +49,14 @@ class SessionStoreHandler:
 
     @staticmethod
     def complete_migration():
+
         # swap value of [current] with value of [alternative]
+        '''
+        :return: nil
+        After swapping the values, the change needs to be stored persistently,
+        so it can be shared across requests/processes, for django-redis
+        to know which session store is in active usage.
+        '''
         SessionStoreHandler.current_store, SessionStoreHandler.alternative_store = \
             SessionStoreHandler.alternative_store, SessionStoreHandler.current_store
 
@@ -79,7 +93,7 @@ class StoreSelector(SessionStoreHandler):
             session_store = self.get_alternative_store()
             return session_store
 
-        elif (not self.migration_mode)\
+        elif (not session_exists) and (not self.migration_mode)\
                 and (self.current_state == States.MIGRATING):
 
             # complete the migration by updating the current_state variable
