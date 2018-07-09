@@ -103,8 +103,9 @@ class SessionStore(SessionBase):
     """
     Implements Redis database session store.
     """
-    def __init__(self, session_key=None, conf=settings):
+    def __init__(self, session_key=None):
         super(SessionStore, self).__init__(session_key)
+        conf = Config(session_key).get()
         self.server = self.get_redis_server(session_key, conf)
 
     # overriding this to support pickle serializer.
@@ -199,7 +200,7 @@ class SessionStore(SessionBase):
     @classmethod
     def clear_expired(cls):
         pass
-        
+
     def get_real_stored_key(self, session_key):
         """Return the real key name in redis storage
         @return string
@@ -217,7 +218,37 @@ class SessionStore(SessionBase):
         return ':'.join([prefix, session_key])
 
 
-class SessionStoreAlt(SessionStore):
-    def __init__(self, session_key=None, conf=alt_settings):
-        super(SessionStore, self).__init__(session_key)
-        self.server = self.get_redis_server(session_key, conf)
+class Config:
+
+    def __init__(self, session_key=None):
+
+        # customer session key
+        self.session_key = session_key
+
+        # whether to migrate new sessions to the alternative store
+        if hasattr(settings, "SESSION_STORE_MIGRATION_MODE"):
+            self.migration_mode = settings.SESSION_STORE_MIGRATION_MODE
+        else:
+            self.migration_mode = False
+        # whether to continue checking for active sessions on the previous
+        # session store after migrating new sessions to alternative store
+        if hasattr(settings, "DROP_ORIGINAL_SESSION_STORE"):
+            self.drop_original_store = settings.DROP_ORIGINAL_SESSION_STORE
+        else:
+            self.drop_original_store = False
+
+    def get(self):
+
+        if not self.drop_original_store:
+            if not self.migration_mode:
+                return settings
+            else:
+                # check if session exists in the current session store
+                session_exists = SessionStore().exists(self.session_key)
+                if session_exists:
+                    # return the current session store
+                    return settings
+                else:
+                    return alt_settings
+        else:
+            return alt_settings
