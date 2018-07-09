@@ -8,6 +8,8 @@ from django.contrib.sessions.backends.base import SessionBase, CreateError
 from redis_sessions import settings
 from redis_sessions import alt_settings
 import base64
+from structlog import get_logger
+logger = get_logger(__name__)
 
 
 class RedisServer:
@@ -103,9 +105,14 @@ class SessionStore(SessionBase):
     """
     Implements Redis database session store.
     """
-    def __init__(self, session_key=None):
+    def __init__(self, session_key=None, force_default_conf=False):
         super(SessionStore, self).__init__(session_key)
-        conf = Config(session_key).get()
+        session_existence_check = (force_default_conf and settings.SESSION_STORE_MIGRATION_MODE)
+        no_migration = not settings.SESSION_STORE_MIGRATION_MODE
+        if session_existence_check or no_migration:
+            conf = settings
+        else:
+            conf = Config(session_key).get()
         self.server = self.get_redis_server(session_key, conf)
 
     # overriding this to support pickle serializer.
@@ -225,30 +232,22 @@ class Config:
         # customer session key
         self.session_key = session_key
 
-        # whether to migrate new sessions to the alternative store
-        if hasattr(settings, "SESSION_STORE_MIGRATION_MODE"):
-            self.migration_mode = settings.SESSION_STORE_MIGRATION_MODE
-        else:
-            self.migration_mode = False
-        # whether to continue checking for active sessions on the previous
-        # session store after migrating new sessions to alternative store
-        if hasattr(settings, "DROP_ORIGINAL_SESSION_STORE"):
-            self.drop_original_store = settings.DROP_ORIGINAL_SESSION_STORE
-        else:
-            self.drop_original_store = False
-
     def get(self):
 
-        if not self.drop_original_store:
-            if not self.migration_mode:
+        if not settings.DROP_ORIGINAL_SESSION_STORE:
+            if not settings.SESSION_STORE_MIGRATION_MODE:
+                logger.info("using default settings 1")
                 return settings
             else:
                 # check if session exists in the current session store
-                session_exists = SessionStore().exists(self.session_key)
+                session_exists = SessionStore(force_default_conf=True).exists(self.session_key)
                 if session_exists:
                     # return the current session store
+                    logger.info("using default settings 2")
                     return settings
                 else:
+                    logger.info("using alternative settings 1")
                     return alt_settings
         else:
+            logger.info("using alternative settings 2")
             return alt_settings
