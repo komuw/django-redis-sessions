@@ -63,9 +63,7 @@ class RedisServer:
         return
 
     def get(self):
-        logger.info(CONNECTION_KEY=self.connection_key)
         if self.connection_key in self.__redis:
-            logger.info(CONNECTION_KEY_SET=True)
             return self.__redis[self.connection_key]
 
         if self.connection_type == 'sentinel':
@@ -239,7 +237,6 @@ class SessionStore(SessionBase):
         session_existence_check = (not default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
         no_session_existence_check = (default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
         if session_existence_check:
-            logger.info(SESSION_KEY=session_key)
             # check for session existence in the current store
             logger.info("checking if session key exists in default store")
             self.server = self.get_redis_server(session_key, default_settings)
