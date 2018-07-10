@@ -17,7 +17,7 @@ class RedisServer:
 
     def __init__(self, session_key, settings):
         self.session_key = session_key
-        self.connection_key = ''
+        self.connection_key = settings.TAG
         self.settings = settings
 
         if self.settings.SESSION_REDIS_SENTINEL_LIST is not None:
@@ -99,6 +99,8 @@ class RedisServer:
                 password=self.settings.SESSION_REDIS_PASSWORD,
             )
 
+        logger.info(CONNECTION_TYPE=self.connection_type)
+        logger.info(REDIS_HOST=self.settings.SESSION_REDIS_HOST)
         return self.__redis[self.connection_key]
 
 

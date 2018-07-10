@@ -1,5 +1,6 @@
 from settings import *
 
+TAG = "alt_"
 # this is the alternative redis store instance configs
 SESSION_REDIS = getattr(settings, 'ALT_SESSION_REDIS', {})
 
