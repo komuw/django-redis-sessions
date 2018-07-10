@@ -5,7 +5,7 @@ try:
 except ImportError:  # Python 3.*
     from django.utils.encoding import force_text as force_unicode
 from django.contrib.sessions.backends.base import SessionBase, CreateError
-from redis_sessions import settings
+from redis_sessions import settings as default_settings
 from redis_sessions import alt_settings
 import base64
 from structlog import get_logger
@@ -15,28 +15,29 @@ logger = get_logger(__name__)
 class RedisServer:
     __redis = {}
 
-    def __init__(self, session_key, settings=settings):
+    def __init__(self, session_key, settings=default_settings):
         self.session_key = session_key
         self.connection_key = ''
+        self.settings = settings
 
-        if settings.SESSION_REDIS_SENTINEL_LIST is not None:
+        if self.settings.SESSION_REDIS_SENTINEL_LIST is not None:
             self.connection_type = 'sentinel'
         else:
-            if settings.SESSION_REDIS_POOL is not None:
-                server_key, server = self.get_server(session_key, settings.SESSION_REDIS_POOL)
+            if self.settings.SESSION_REDIS_POOL is not None:
+                server_key, server = self.get_server(session_key, self.settings.SESSION_REDIS_POOL)
                 self.connection_key = str(server_key)
-                settings.SESSION_REDIS_HOST = getattr(server, 'host', 'localhost')
-                settings.SESSION_REDIS_PORT = getattr(server, 'port', 6379)
-                settings.SESSION_REDIS_DB = getattr(server, 'db', 0)
-                settings.SESSION_REDIS_PASSWORD = getattr(server, 'password', None)
-                settings.SESSION_REDIS_URL = getattr(server, 'url', None)
-                settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH = getattr(server,'unix_domain_socket_path', None)
+                self.settings.SESSION_REDIS_HOST = getattr(server, 'host', 'localhost')
+                self.settings.SESSION_REDIS_PORT = getattr(server, 'port', 6379)
+                self.settings.SESSION_REDIS_DB = getattr(server, 'db', 0)
+                self.settings.SESSION_REDIS_PASSWORD = getattr(server, 'password', None)
+                self.settings.SESSION_REDIS_URL = getattr(server, 'url', None)
+                self.settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH = getattr(server,'unix_domain_socket_path', None)
 
-            if settings.SESSION_REDIS_URL is not None:
+            if self.settings.SESSION_REDIS_URL is not None:
                 self.connection_type = 'redis_url'
-            elif settings.SESSION_REDIS_HOST is not None:
+            elif self.settings.SESSION_REDIS_HOST is not None:
                 self.connection_type = 'redis_host'
-            elif settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH is not None:
+            elif self.settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH is not None:
                 self.connection_type = 'redis_unix_url'
 
         self.connection_key += self.connection_type
@@ -68,34 +69,34 @@ class RedisServer:
         if self.connection_type == 'sentinel':
             from redis.sentinel import Sentinel
             self.__redis[self.connection_key] = Sentinel(
-                settings.SESSION_REDIS_SENTINEL_LIST,
-                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
-                retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
-                db=getattr(settings, 'SESSION_REDIS_DB', 0),
-                password=getattr(settings, 'SESSION_REDIS_PASSWORD', None)
-            ).master_for(settings.SESSION_REDIS_SENTINEL_MASTER_ALIAS)
+                self.settings.SESSION_REDIS_SENTINEL_LIST,
+                socket_timeout=self.settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                retry_on_timeout=self.settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
+                db=getattr(self.settings, 'SESSION_REDIS_DB', 0),
+                password=getattr(self.settings, 'SESSION_REDIS_PASSWORD', None)
+            ).master_for(self.settings.SESSION_REDIS_SENTINEL_MASTER_ALIAS)
 
         elif self.connection_type == 'redis_url':
             self.__redis[self.connection_key] = redis.StrictRedis.from_url(
-                settings.SESSION_REDIS_URL,
-                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT
+                self.settings.SESSION_REDIS_URL,
+                socket_timeout=self.settings.SESSION_REDIS_SOCKET_TIMEOUT
             )
         elif self.connection_type == 'redis_host':
             self.__redis[self.connection_key] = redis.StrictRedis(
-                host=settings.SESSION_REDIS_HOST,
-                port=settings.SESSION_REDIS_PORT,
-                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
-                retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
-                db=settings.SESSION_REDIS_DB,
-                password=settings.SESSION_REDIS_PASSWORD
+                host=self.settings.SESSION_REDIS_HOST,
+                port=self.settings.SESSION_REDIS_PORT,
+                socket_timeout=self.settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                retry_on_timeout=self.settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
+                db=self.settings.SESSION_REDIS_DB,
+                password=self.settings.SESSION_REDIS_PASSWORD
             )
         elif self.connection_type == 'redis_unix_url':
             self.__redis[self.connection_key] = redis.StrictRedis(
-                unix_socket_path=settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH,
-                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
-                retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
-                db=settings.SESSION_REDIS_DB,
-                password=settings.SESSION_REDIS_PASSWORD,
+                unix_socket_path=self.settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH,
+                socket_timeout=self.settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                retry_on_timeout=self.settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
+                db=self.settings.SESSION_REDIS_DB,
+                password=self.settings.SESSION_REDIS_PASSWORD,
             )
 
         return self.__redis[self.connection_key]
@@ -105,15 +106,29 @@ class SessionStore(SessionBase):
     """
     Implements Redis database session store.
     """
-    def __init__(self, session_key=None, force_default_conf=False):
+    def __init__(self, session_key=None):
         super(SessionStore, self).__init__(session_key)
-        session_existence_check = (force_default_conf and settings.SESSION_STORE_MIGRATION_MODE)
-        no_migration = not settings.SESSION_STORE_MIGRATION_MODE
-        if session_existence_check or no_migration:
-            conf = settings
+        session_existence_check = (not default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
+        no_session_existence_check = (default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
+        if session_existence_check:
+            logger.info(SESSION_KEY=session_key)
+            # check for session existence in the current store
+            self.server = self.get_redis_server(session_key, default_settings)
+            if self.exists(session_key):
+                logger.info("using default settings 1")
+                settings = default_settings
+            else:
+                logger.info("using alt settings 1")
+                settings = alt_settings
+
+        elif no_session_existence_check:
+            logger.info("using alt settings 2")
+            settings = alt_settings
         else:
-            conf = Config(session_key).get()
-        self.server = self.get_redis_server(session_key, conf)
+            logger.info("using default settings 2")
+            settings = default_settings
+
+        self.server = self.get_redis_server(session_key, settings)
 
     # overriding this to support pickle serializer.
     def __getstate__(self):
@@ -219,35 +234,7 @@ class SessionStore(SessionBase):
         else:
             session_key = str(session_key)
 
-        prefix = settings.SESSION_REDIS_PREFIX
+        prefix = default_settings.SESSION_REDIS_PREFIX
         if not prefix:
             return session_key
         return ':'.join([prefix, session_key])
-
-
-class Config:
-
-    def __init__(self, session_key=None):
-
-        # customer session key
-        self.session_key = session_key
-
-    def get(self):
-
-        if not settings.DROP_ORIGINAL_SESSION_STORE:
-            if not settings.SESSION_STORE_MIGRATION_MODE:
-                logger.info("using default settings 1")
-                return settings
-            else:
-                # check if session exists in the current session store
-                session_exists = SessionStore(force_default_conf=True).exists(self.session_key)
-                if session_exists:
-                    # return the current session store
-                    logger.info("using default settings 2")
-                    return settings
-                else:
-                    logger.info("using alternative settings 1")
-                    return alt_settings
-        else:
-            logger.info("using alternative settings 2")
-            return alt_settings
