@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 class RedisServer:
     __redis = {}
 
-    def __init__(self, session_key, settings=default_settings):
+    def __init__(self, session_key, settings):
         self.session_key = session_key
         self.connection_key = ''
         self.settings = settings
@@ -108,24 +108,10 @@ class SessionStore(SessionBase):
     """
     def __init__(self, session_key=None):
         super(SessionStore, self).__init__(session_key)
-        session_existence_check = (not default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
-        no_session_existence_check = (default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
-        if session_existence_check:
-            logger.info(SESSION_KEY=session_key)
-            # check for session existence in the current store
-            self.server = self.get_redis_server(session_key, default_settings)
-            if self.exists(session_key):
-                logger.info("using default settings 1")
-                settings = default_settings
-            else:
-                logger.info("using alt settings 1")
-                settings = alt_settings
-
-        elif no_session_existence_check:
-            logger.info("using alt settings 2")
+        self.conf = "default_settings"
+        if self.get_conf(session_key) == 'alt_settings':
             settings = alt_settings
         else:
-            logger.info("using default settings 2")
             settings = default_settings
 
         self.server = self.get_redis_server(session_key, settings)
@@ -143,7 +129,11 @@ class SessionStore(SessionBase):
     # overriding this to support pickle serializer.
     def __setstate__(self, new_state):
         # recreate server instance
-        new_state['server'] = self.get_redis_server(new_state['server'])
+        if self.conf == 'alt_settings':
+            settings = alt_settings
+        else:
+            settings = default_settings
+        new_state['server'] = self.get_redis_server(new_state['server'], settings)
 
         # re-instate our __dict__ state from the pickled state
         self.__dict__.update(new_state)
@@ -156,8 +146,8 @@ class SessionStore(SessionBase):
         return base64.b64encode(hash.encode() + b":" + serialized)
 
     @staticmethod
-    def get_redis_server(session_key, alt_setting):
-        return RedisServer(session_key, alt_setting).get()
+    def get_redis_server(session_key, conf):
+        return RedisServer(session_key, conf).get()
 
     def load(self):
         try:
@@ -234,7 +224,33 @@ class SessionStore(SessionBase):
         else:
             session_key = str(session_key)
 
-        prefix = default_settings.SESSION_REDIS_PREFIX
+        if self.conf == 'alt_settings':
+            prefix = alt_settings.SESSION_REDIS_PREFIX
+        else:
+            prefix = default_settings.SESSION_REDIS_PREFIX
         if not prefix:
             return session_key
         return ':'.join([prefix, session_key])
+
+    def get_conf(self, session_key):
+        session_existence_check = (not default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
+        no_session_existence_check = (default_settings.DROP_ORIGINAL_SESSION_STORE and default_settings.SESSION_STORE_MIGRATION_MODE)
+        if session_existence_check:
+            logger.info(SESSION_KEY=session_key)
+            # check for session existence in the current store
+            self.server = self.get_redis_server(session_key, default_settings)
+            if self.exists(session_key):
+                logger.info("using default settings 1")
+                conf = "default_settings"
+            else:
+                logger.info("using alt settings 1")
+                conf = "alt_settings"
+
+        elif no_session_existence_check:
+            logger.info("using alt settings 2")
+            conf = "alt_settings"
+        else:
+            logger.info("using default settings 2")
+            conf = "default_settings"
+
+        return conf
