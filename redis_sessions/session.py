@@ -63,7 +63,9 @@ class RedisServer:
         return
 
     def get(self):
+        logger.info(CONNECTION_KEY=self.connection_key)
         if self.connection_key in self.__redis:
+            logger.info(CONNECTION_KEY_SET=True)
             return self.__redis[self.connection_key]
 
         if self.connection_type == 'sentinel':
@@ -99,8 +101,6 @@ class RedisServer:
                 password=self.settings.SESSION_REDIS_PASSWORD,
             )
 
-        logger.info(CONNECTION_TYPE=self.connection_type)
-        logger.info(REDIS_HOST=self.settings.SESSION_REDIS_HOST)
         return self.__redis[self.connection_key]
 
 
@@ -108,11 +108,12 @@ class SessionStore(SessionBase):
     """
     Implements Redis database session store.
     """
-    def __init__(self, session_key=None):
+    def __init__(self, session_key):
         super(SessionStore, self).__init__(session_key)
         self.conf = "default_settings"
         if self.get_conf(session_key) == 'alt_settings':
             settings = alt_settings
+            self.conf = 'alt_settings'
         else:
             settings = default_settings
 
@@ -240,6 +241,7 @@ class SessionStore(SessionBase):
         if session_existence_check:
             logger.info(SESSION_KEY=session_key)
             # check for session existence in the current store
+            logger.info("checking if session key exists in default store")
             self.server = self.get_redis_server(session_key, default_settings)
             if self.exists(session_key):
                 logger.info("using default settings 1")

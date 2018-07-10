@@ -1,6 +1,6 @@
 from django.conf import settings
 
-TAG = "default_"
+TAG = ""
 SESSION_STORE_MIGRATION_MODE = getattr(settings, 'SESSION_STORE_MIGRATION_MODE', 0)
 DROP_ORIGINAL_SESSION_STORE = getattr(settings, 'DROP_ORIGINAL_SESSION_STORE', 0)
 
