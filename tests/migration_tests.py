@@ -56,13 +56,11 @@ class SessionMigrationTest(TestCase):
         assert store.exists(session_key)
 
         with mock.patch("redis_sessions.session.default_settings.SESSION_STORE_MIGRATION_MODE", 1):
-            print("testing here2")
+
             store = SessionStore(session_key)
             store._session.keys()
             store._session_key = session_key
             assert store.exists(session_key)
-            print("end testing here")
-
 
     def test_old_session_with_full_migration_on(self):
 
@@ -76,9 +74,8 @@ class SessionMigrationTest(TestCase):
 
         with mock.patch("redis_sessions.session.default_settings.SESSION_STORE_MIGRATION_MODE", 1), \
              mock.patch("redis_sessions.session.default_settings.DROP_ORIGINAL_SESSION_STORE", 1):
-            print("testing here2")
+
             store = SessionStore(session_key)
             store._session.keys()
             store._session_key = session_key
             assert store.exists(session_key) is not True
-            print("end testing here")
