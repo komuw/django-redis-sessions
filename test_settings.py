@@ -65,3 +65,12 @@ SESSION_REDIS = {
         'socket_timeout': 1
     }
 
+
+ALT_SESSION_REDIS = {
+        'host': os.environ.get('ALT_REDIS_HOST', 'localhost'),
+        'port': 6379,
+        'db': 0,
+        'password': '',
+        'prefix': 'session',
+        'socket_timeout': 1
+    }

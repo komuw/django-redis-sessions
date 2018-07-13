@@ -2,3 +2,5 @@ nose
 django
 redis
 six
+structlog
+mock

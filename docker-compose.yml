@@ -4,15 +4,19 @@ services:
     build: .
     depends_on:
       - redis
+      - alt_redis
     volumes:
       - ./:/usr/src/app
       - ~/.pypirc:/root/.pypirc
     command: bash -c "python manage.py test"
     environment:
       - REDIS_HOST=redis
-
+      - ALT_REDIS_HOST=alt_redis
 
   redis:
     image: redis:3.2.10-alpine
     ports:
       - 6379:6379
+
+  alt_redis:
+    image: redis:3.2.10-alpine
