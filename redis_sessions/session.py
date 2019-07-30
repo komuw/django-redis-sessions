@@ -67,6 +67,7 @@ class RedisServer:
             self.__redis[self.connection_key] = Sentinel(
                 settings.SESSION_REDIS_SENTINEL_LIST,
                 socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                socket_connect_timeout=settings.SOCKET_CONNECT_TIMEOUT,
                 retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
                 db=getattr(settings, 'SESSION_REDIS_DB', 0),
                 password=getattr(settings, 'SESSION_REDIS_PASSWORD', None)
@@ -75,13 +76,15 @@ class RedisServer:
         elif self.connection_type == 'redis_url':
             self.__redis[self.connection_key] = redis.StrictRedis.from_url(
                 settings.SESSION_REDIS_URL,
-                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT
+                socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                socket_connect_timeout=settings.SOCKET_CONNECT_TIMEOUT
             )
         elif self.connection_type == 'redis_host':
             self.__redis[self.connection_key] = redis.StrictRedis(
                 host=settings.SESSION_REDIS_HOST,
                 port=settings.SESSION_REDIS_PORT,
                 socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                socket_connect_timeout=settings.SOCKET_CONNECT_TIMEOUT,
                 retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
                 db=settings.SESSION_REDIS_DB,
                 password=settings.SESSION_REDIS_PASSWORD
@@ -90,6 +93,7 @@ class RedisServer:
             self.__redis[self.connection_key] = redis.StrictRedis(
                 unix_socket_path=settings.SESSION_REDIS_UNIX_DOMAIN_SOCKET_PATH,
                 socket_timeout=settings.SESSION_REDIS_SOCKET_TIMEOUT,
+                socket_connect_timeout=settings.SOCKET_CONNECT_TIMEOUT,
                 retry_on_timeout=settings.SESSION_REDIS_RETRY_ON_TIMEOUT,
                 db=settings.SESSION_REDIS_DB,
                 password=settings.SESSION_REDIS_PASSWORD,
