@@ -1,4 +1,4 @@
 nose
 django
-redis
+redis==3.2.1
 six
